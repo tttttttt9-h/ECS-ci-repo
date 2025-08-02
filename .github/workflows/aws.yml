@@ -1,0 +1,45 @@
+name: Deploy to Amazon ECR
+
+on:
+  push:
+    branches:
+      - "main"
+
+env:
+  AWS_REGION: "ap-northeast-2"                   # ECR이 존재하는 Region 입력
+  ECR_REPOSITORY: "github-ecs"              # 생성해둔 ECR의 이름 설정
+  IMAGE_TAG: latest  		# ECR에 push 할 때 무슨 Tag로 push 할지 설정 
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      run: |
+        
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }} .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
+        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}"
